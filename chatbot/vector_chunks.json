@@ -1,0 +1,86 @@
+[
+    {
+        "id": "chunk_1",
+        "section": "general",
+        "document_type": "bank_statement",
+        "text": "1.10.0\nbank_docs\nbank_docs.jpg\n_root_"
+    },
+    {
+        "id": "chunk_2",
+        "section": "bank_information",
+        "document_type": "bank_statement",
+        "text": "Commerce Bank\nMemberFDIC\n1000 Walnut Kansas City MO 64106-3686\nJane Customer 1234 Anywhere Dr. Small Town, MO 12345-6789"
+    },
+    {
+        "id": "chunk_3",
+        "section": "account_information",
+        "document_type": "bank_statement",
+        "text": "Primary Account Number:\n000009752"
+    },
+    {
+        "id": "chunk_4",
+        "section": "checks_paid",
+        "document_type": "bank_statement",
+        "text": "Total Checks Paid\n$305.00\nBank Statement\nIf you have any questions about your statement, please call us at 816-234-2265"
+    },
+    {
+        "id": "chunk_5",
+        "section": "statement_information",
+        "document_type": "bank_statement",
+        "text": "Statement Date: Page Number:\nJune 5, 2003 1\nCONNECTIONS CHECKING AcCount # 000009752"
+    },
+    {
+        "id": "chunk_6",
+        "section": "account_summary",
+        "document_type": "bank_statement",
+        "text": "Account SummaryAccount # 000009752\nBeginning Balance on May 3, 2003\n$7,126.11"
+    },
+    {
+        "id": "chunk_7",
+        "section": "deposits",
+        "document_type": "bank_statement",
+        "text": "Deposits & Other Credits\n+3,615.08"
+    },
+    {
+        "id": "chunk_8",
+        "section": "atm_withdrawals",
+        "document_type": "bank_statement",
+        "text": "ATM Withdrawals &Debits\n-20.00\nVISA Check Card Purchases & Debits\n-0.00\nWithdrawals &Other Debits"
+    },
+    {
+        "id": "chunk_9",
+        "section": "checks_paid",
+        "document_type": "bank_statement",
+        "text": "Checks Paid\n-200.00\nEnding Balance on June 5, 2003\n$10,521.19"
+    },
+    {
+        "id": "chunk_10",
+        "section": "deposits",
+        "document_type": "bank_statement",
+        "text": "Deposits & Other CreditsAccount # 000009752\nDescription\nDate Credited\nAmount\nDeposit Ref Nbr: 130012345\n05-15\n$3,615.08"
+    },
+    {
+        "id": "chunk_11",
+        "section": "deposits",
+        "document_type": "bank_statement",
+        "text": "Total Deposits & Other Credits"
+    },
+    {
+        "id": "chunk_12",
+        "section": "atm_withdrawals",
+        "document_type": "bank_statement",
+        "text": "ATM Withdrawals & DebitsAccount # 000009752\nDescription Tran Date\nDate Paid\nATM Withdrawal 1000 Walnut St M119 Kansas City MO\n00005678\n05-18\n05-19\n$20.00"
+    },
+    {
+        "id": "chunk_13",
+        "section": "atm_withdrawals",
+        "document_type": "bank_statement",
+        "text": "Total ATM Withdrawals & Debits"
+    },
+    {
+        "id": "chunk_14",
+        "section": "checks_paid",
+        "document_type": "bank_statement",
+        "text": "Checks PaidAccount # 000009752\nCheck Number\nReference Number\n05-12\n1001\n75.00\n00012576589\n1002\n30.00\n00036547854\n05-24\n1003\n200.00\n00094613547"
+    }
+]

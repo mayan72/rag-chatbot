@@ -1,0 +1,798 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+
+<!-- ============================================================
+     PAGE HEADER
+============================================================= -->
+
+<div class="page-header mb-4">
+
+    <div>
+
+        <div class="d-flex align-items-center gap-2 mb-2">
+
+            <span
+                class="badge bg-primary-subtle text-primary"
+            >
+                <i class="bi bi-stars"></i>
+                AI ASSISTANT
+            </span>
+
+        </div>
+
+        <h2 class="page-title mb-1">
+            AI Knowledge Assistant
+        </h2>
+
+        <p class="page-description mb-0">
+            Ask questions about your enterprise knowledge base
+            and retrieve contextual answers.
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- ============================================================
+     MAIN GRID
+============================================================= -->
+
+<div class="row g-4">
+
+
+    <!-- ========================================================
+         LEFT PANEL
+    ========================================================= -->
+
+    <div class="col-lg-8">
+
+
+        <!-- ====================================================
+             ASK AI CARD
+        ==================================================== -->
+
+        <div class="card dashboard-card mb-4">
+
+            <div class="card-body p-4">
+
+
+                <!-- Card Header -->
+
+                <div class="d-flex align-items-center gap-3 mb-4">
+
+                    <div class="section-icon">
+
+                        <i class="bi bi-chat-square-text"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h5 class="section-title mb-1">
+                            Ask AI
+                        </h5>
+
+                        <p class="section-description mb-0">
+                            Enter your question and the assistant
+                            will search the available knowledge.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                {% csrf_token %}
+
+
+                <!-- Question -->
+
+                <div class="question-wrapper">
+
+                    <label
+                        for="question"
+                        class="form-label"
+                    >
+                        Your question
+                    </label>
+
+
+                    <textarea
+                        id="question"
+                        class="form-control question-input"
+                        rows="5"
+                        placeholder="Example: What is happening at the Qatalum smelter?"
+                    ></textarea>
+
+
+                    <div class="question-hint">
+
+                        <i class="bi bi-info-circle"></i>
+
+                        Ask a specific question for better
+                        retrieval accuracy.
+
+                    </div>
+
+                </div>
+
+
+                <!-- Ask Button -->
+
+                <div class="mt-4">
+
+                    <button
+                        type="button"
+                        id="askBtn"
+                        class="btn btn-primary ask-button"
+                    >
+
+                        <i class="bi bi-stars"></i>
+
+                        <span>
+                            Ask AI
+                        </span>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ====================================================
+             LOADING
+        ===================================================== -->
+
+        <div
+            id="loading"
+            class="generation-loading mb-4"
+            style="display: none;"
+        >
+
+            <div class="loading-icon">
+
+                <div
+                    class="spinner-border"
+                    role="status"
+                >
+
+                    <span class="visually-hidden">
+                        Generating...
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div>
+
+                <div class="loading-title">
+                    Generating answer
+                </div>
+
+                <div class="loading-description">
+                    Searching the knowledge base and preparing
+                    your response...
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ====================================================
+             AI RESPONSE
+        ===================================================== -->
+
+        <div class="card dashboard-card mb-4">
+
+            <div class="card-body p-4">
+
+
+                <!-- Response Header -->
+
+                <div
+                    class="d-flex justify-content-between
+                           align-items-center mb-4"
+                >
+
+                    <div
+                        class="d-flex align-items-center gap-3"
+                    >
+
+                        <div class="section-icon response-icon">
+
+                            <i class="bi bi-robot"></i>
+
+                        </div>
+
+
+                        <div>
+
+                            <h5 class="section-title mb-1">
+                                AI Response
+                            </h5>
+
+                            <p class="section-description mb-0">
+                                Generated response from your
+                                knowledge base.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Copy -->
+
+                    <button
+                        type="button"
+                        class="icon-button"
+                        onclick="copyAnswer()"
+                        title="Copy answer"
+                        aria-label="Copy answer"
+                    >
+
+                        <i class="bi bi-copy"></i>
+
+                    </button>
+
+                </div>
+
+
+                <!-- Answer -->
+
+                <div
+                    id="answer"
+                    class="answer-container"
+                >
+
+                    <div class="empty-response">
+
+                        <div class="empty-response-icon">
+
+                            <i class="bi bi-chat-square-dots"></i>
+
+                        </div>
+
+                        <div class="empty-response-title">
+                            Your answer will appear here
+                        </div>
+
+                        <div class="empty-response-text">
+                            Ask a question above to get started.
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ====================================================
+             WEB SEARCH
+        ===================================================== -->
+
+        <div
+            class="card dashboard-card web-search-card mb-4"
+            id="webSearchSection"
+        >
+
+            <div class="card-body p-4">
+
+
+                <!-- Web Search Prompt -->
+
+                <div
+                    id="webSearchPrompt"
+                    class="d-flex
+                           justify-content-between
+                           align-items-center
+                           gap-4"
+                >
+
+                    <div
+                        class="d-flex
+                               align-items-center
+                               gap-3"
+                    >
+
+                        <div class="section-icon web-icon">
+
+                            <i class="bi bi-globe2"></i>
+
+                        </div>
+
+
+                        <div>
+
+                            <h5 class="section-title mb-1">
+
+                                Need a better answer?
+
+                            </h5>
+
+                            <p
+                                class="section-description mb-0"
+                            >
+
+                                Search the web and refine the
+                                current response.
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <button
+                        type="button"
+                        id="webSearchBtn"
+                        class="btn btn-outline-primary
+                               web-search-button"
+                    >
+
+                        <i class="bi bi-globe2"></i>
+
+                        <span>
+                            Web Search
+                        </span>
+
+                    </button>
+
+                </div>
+
+
+                <!-- =================================================
+                     WEB SEARCH LOADING
+                ================================================== -->
+
+                <div
+                    id="webSearchLoading"
+                    class="web-search-loading"
+                    style="display: none;"
+                >
+
+                    <div class="web-loading-spinner">
+
+                        <div
+                            class="spinner-border text-primary"
+                            role="status"
+                        >
+
+                            <span class="visually-hidden">
+                                Searching...
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div>
+
+                        <div class="loading-title">
+
+                            Searching the web and refining
+                            your answer...
+
+                        </div>
+
+                        <div class="loading-description">
+
+                            Please wait while the response is
+                            being refined.
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ====================================================
+             SOURCES
+        ===================================================== -->
+
+        <div class="card dashboard-card">
+
+            <div class="card-body p-4">
+
+
+                <div
+                    class="d-flex
+                           align-items-center
+                           justify-content-between
+                           mb-4"
+                >
+
+                    <div
+                        class="d-flex
+                               align-items-center
+                               gap-3"
+                    >
+
+                        <div class="section-icon source-icon">
+
+                            <i class="bi bi-collection"></i>
+
+                        </div>
+
+
+                        <div>
+
+                            <h5 class="section-title mb-1">
+                                Retrieved Sources
+                            </h5>
+
+                            <p class="section-description mb-0">
+                                Documents used to generate
+                                the response.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div id="sources">
+
+                    <div class="empty-sources">
+
+                        <i class="bi bi-file-earmark-text"></i>
+
+                        <span>
+                            No sources yet.
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================
+         RIGHT PANEL
+    ========================================================= -->
+
+    <div class="col-lg-4">
+
+
+        <!-- ====================================================
+             EXECUTION SUMMARY
+        ===================================================== -->
+
+        <div class="card dashboard-card mb-4">
+
+            <div class="card-body p-4">
+
+
+                <div
+                    class="d-flex
+                           align-items-center
+                           gap-3 mb-4"
+                >
+
+                    <div class="section-icon">
+
+                        <i class="bi bi-speedometer2"></i>
+
+                    </div>
+
+
+                    <div>
+
+                        <h5 class="section-title mb-1">
+                            Execution Summary
+                        </h5>
+
+                        <p class="section-description mb-0">
+                            Details about this request.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="execution-list">
+
+
+                    <!-- Provider -->
+
+                    <div class="execution-row">
+
+                        <div class="execution-label">
+
+                            <i class="bi bi-cloud"></i>
+
+                            Provider
+
+                        </div>
+
+                        <div
+                            id="provider"
+                            class="execution-value"
+                        >
+                            -
+                        </div>
+
+                    </div>
+
+
+                    <!-- Model -->
+
+                    <div class="execution-row">
+
+                        <div class="execution-label">
+
+                            <i class="bi bi-cpu"></i>
+
+                            Model
+
+                        </div>
+
+                        <div
+                            id="model"
+                            class="execution-value
+                                   execution-value-small"
+                        >
+                            -
+                        </div>
+
+                    </div>
+
+
+                    <!-- Confidence -->
+
+                    <div class="execution-row">
+
+                        <div class="execution-label">
+
+                            <i class="bi bi-bullseye"></i>
+
+                            Confidence
+
+                        </div>
+
+                        <div
+                            id="confidence"
+                            class="execution-value"
+                        >
+                            -
+                        </div>
+
+                    </div>
+
+
+                    <!-- Response Time -->
+
+                    <div class="execution-row">
+
+                        <div class="execution-label">
+
+                            <i class="bi bi-stopwatch"></i>
+
+                            Response Time
+
+                        </div>
+
+                        <div
+                            id="time"
+                            class="execution-value"
+                        >
+                            -
+                        </div>
+
+                    </div>
+
+
+                    <!-- Tokens -->
+
+                    <div class="execution-row">
+
+                        <div class="execution-label">
+
+                            <i class="bi bi-braces"></i>
+
+                            Tokens
+
+                        </div>
+
+                        <div
+                            id="tokens"
+                            class="execution-value"
+                        >
+                            -
+                        </div>
+
+                    </div>
+
+
+                    <!-- Cost -->
+
+                    <div class="execution-row">
+
+                        <div class="execution-label">
+
+                            <i class="bi bi-currency-dollar"></i>
+
+                            Total Cost
+
+                        </div>
+
+                        <div
+                            id="cost"
+                            class="execution-value"
+                        >
+                            -
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ====================================================
+             SYSTEM STATUS
+        ===================================================== -->
+
+        <div class="card dashboard-card">
+
+            <div class="card-body p-4">
+
+
+                <div
+                    class="d-flex
+                           align-items-center
+                           gap-3 mb-4"
+                >
+
+                    <div class="section-icon">
+
+                        <i class="bi bi-shield-check"></i>
+
+                    </div>
+
+
+                    <div>
+
+                        <h5 class="section-title mb-1">
+                            System Status
+                        </h5>
+
+                        <p class="section-description mb-0">
+                            Current RAG configuration.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Ready -->
+
+                <div class="system-status">
+
+                    <span class="system-status-dot"></span>
+
+                    <div>
+
+                        <div class="system-status-title">
+                            Ready
+                        </div>
+
+                        <div class="system-status-text">
+                            RAG system is available.
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="system-info-list mt-4">
+
+
+                    <!-- Vector DB -->
+
+                    <div class="system-info-row">
+
+                        <div class="system-info-label">
+
+                            <i class="bi bi-database"></i>
+
+                            Vector DB
+
+                        </div>
+
+                        <div class="system-info-value">
+                            ChromaDB
+                        </div>
+
+                    </div>
+
+
+                    <!-- Embedding -->
+
+                    <div class="system-info-row">
+
+                        <div class="system-info-label">
+
+                            <i class="bi bi-diagram-3"></i>
+
+                            Embedding
+
+                        </div>
+
+                        <div
+                            class="system-info-value
+                                   system-info-small"
+                        >
+                            BAAI/bge-small-en-v1.5
+                        </div>
+
+                    </div>
+
+
+                    <!-- Dataset -->
+
+                    <div class="system-info-row">
+
+                        <div class="system-info-label">
+
+                            <i class="bi bi-file-earmark-spreadsheet"></i>
+
+                            Dataset
+
+                        </div>
+
+                        <div class="system-info-value">
+                            CSV
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script src="{% static 'js/chat.js' %}"></script>
+
+{% endblock %}

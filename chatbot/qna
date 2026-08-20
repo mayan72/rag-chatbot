@@ -1,0 +1,39 @@
+Why has aluminium production been reduced?  success
+
+What does the report say about energy costs?
+Test 3
+Why are European aluminium premiums increasing?
+Test 4
+What is happening at the Qatalum smelter?
+Test 5
+What is happening at the Mozal smelter?
+Test 6
+Summarize the aluminium market situation.
+Test 7
+What challenges are affecting aluminium producers?
+Test 8
+What factors are affecting aluminium recycling?
+Test 9
+What does the report say about ADC12 prices?
+Test 10
+Why is aluminium supply tight?
+
+
+fail
+
+What does the report say about milk production? fail
+
+
+What is the name of the bank?
+What is the statement date?
+What was the beginning balance on May 3, 2003?
+What was the ending balance on June 5, 2003?
+What was the total amount of deposits and other credits?
+How much was withdrawn through ATMs?
+How much was paid through checks?
+
+run commands 
+
+uvicorn app:app --reload
+
+http://127.0.0.1:8000/docs

@@ -1,0 +1,261 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <div class="mb-4">
+        <h2 class="fw-bold">
+            RAG Analytics
+        </h2>
+
+        <p class="text-muted">
+            Monitor RAG performance, latency, confidence and cost.
+        </p>
+    </div>
+
+
+    <div class="row g-4">
+
+        <div class="col-md-3">
+
+            <div class="card shadow-sm">
+
+                <div class="card-body">
+
+                    <h6 class="text-muted">
+                        Questions Today
+                    </h6>
+
+                    <h2 class="fw-bold">
+                        {{ summary.questions_today|default:"0" }}
+                    </h2>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-md-3">
+
+            <div class="card shadow-sm">
+
+                <div class="card-body">
+
+                    <h6 class="text-muted">
+                        Avg Confidence
+                    </h6>
+
+                    <h2 class="fw-bold">
+                        {{ summary.avg_confidence|default:"0" }}
+                    </h2>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-md-3">
+
+            <div class="card shadow-sm">
+
+                <div class="card-body">
+
+                    <h6 class="text-muted">
+                        Avg Response Time
+                    </h6>
+
+                    <h2 class="fw-bold">
+
+                        {{ summary.avg_response_time|default:"0" }}
+
+                        <small class="text-muted">
+                            ms
+                        </small>
+
+                    </h2>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-md-3">
+
+            <div class="card shadow-sm">
+
+                <div class="card-body">
+
+                    <h6 class="text-muted">
+                        Today's Cost
+                    </h6>
+
+                    <h2 class="fw-bold">
+
+                        ${{ summary.today_cost|default:"0" }}
+
+                    </h2>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="row g-4 mt-1">
+
+        <div class="col-lg-6">
+
+            <div class="card shadow-sm">
+
+                <div class="card-body">
+
+                    <h5 class="fw-bold mb-4">
+                        Provider Usage
+                    </h5>
+
+                    {% if analytics.providers %}
+
+                    <table class="table table-hover">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Provider
+                                </th>
+
+                                <th class="text-end">
+                                    Requests
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            {% for provider, count in analytics.providers.items %}
+
+                            <tr>
+
+                                <td>
+                                    {{ provider }}
+                                </td>
+
+                                <td class="text-end">
+                                    {{ count }}
+                                </td>
+
+                            </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                    {% else %}
+
+                    <p class="text-muted">
+                        No provider data available.
+                    </p>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-lg-6">
+
+            <div class="card shadow-sm">
+
+                <div class="card-body">
+
+                    <h5 class="fw-bold mb-4">
+                        Performance Metrics
+                    </h5>
+
+                    <table class="table">
+
+                        <tbody>
+
+                            <tr>
+
+                                <td>
+                                    Average Retrieval Time
+                                </td>
+
+                                <td>
+                                    {{ analytics.avg_retrieval_time|default:"0" }}
+                                    ms
+                                </td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td>
+                                    Average Provider Latency
+                                </td>
+
+                                <td>
+                                    {{ analytics.avg_provider_latency|default:"0" }}
+                                    ms
+                                </td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td>
+                                    Average Retrieved Chunks
+                                </td>
+
+                                <td>
+                                    {{ analytics.avg_chunks|default:"0" }}
+                                </td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td>
+                                    Average Context Length
+                                </td>
+
+                                <td>
+                                    {{ analytics.avg_context_length|default:"0" }}
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

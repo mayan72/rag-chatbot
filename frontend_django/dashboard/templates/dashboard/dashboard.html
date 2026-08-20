@@ -1,0 +1,345 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <div class="mb-4">
+
+        <h2 class="fw-bold">
+
+            Executive Dashboard
+
+        </h2>
+
+        <p class="text-muted">
+
+            Enterprise AI Platform Overview
+
+        </p>
+
+    </div>
+
+    <!-- KPI Row 1 -->
+
+    <div class="row g-4">
+
+        <div class="col-lg-3">
+
+            <div class="metric-card">
+
+                <div class="d-flex justify-content-between">
+
+                    <div>
+
+                        <div class="metric-title">
+
+                            Documents Indexed
+
+                        </div>
+
+                        <div class="metric-value">
+
+                            16
+
+                        </div>
+
+                    </div>
+
+                    <div class="metric-icon">
+
+                        <i class="bi bi-file-earmark-text"></i>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <div class="metric-card">
+
+                <div class="d-flex justify-content-between">
+
+                    <div>
+
+                        <div class="metric-title">
+
+                            Total Chunks
+
+                        </div>
+
+                        <div class="metric-value">
+
+                            137
+
+                        </div>
+
+                    </div>
+
+                    <div class="metric-icon">
+
+                        <i class="bi bi-grid-3x3-gap"></i>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <div class="metric-card">
+
+                <div class="d-flex justify-content-between">
+
+                    <div>
+
+                        <div class="metric-title">
+
+                            Questions Today
+
+                        </div>
+
+                        <div class="metric-value">
+
+                            24
+
+                        </div>
+
+                    </div>
+
+                    <div class="metric-icon">
+
+                        <i class="bi bi-chat-dots"></i>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <div class="metric-card">
+
+                <div class="d-flex justify-content-between">
+
+                    <div>
+
+                        <div class="metric-title">
+
+                            Active Provider
+
+                        </div>
+
+                        <div class="metric-value fs-4">
+
+                            Gemini
+
+                        </div>
+
+                    </div>
+
+                    <div class="metric-icon">
+
+                        <i class="bi bi-cpu"></i>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- KPI Row 2 -->
+
+    <div class="row g-4 mt-1">
+
+        <div class="col-lg-3">
+
+            <div class="metric-card">
+
+                <div class="metric-title">
+
+                    Avg Response Time
+
+                </div>
+
+                <div class="metric-value">
+
+                    2.31 s
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <div class="metric-card">
+
+                <div class="metric-title">
+
+                    Avg Confidence
+
+                </div>
+
+                <div class="metric-value">
+
+                    91%
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <div class="metric-card">
+
+                <div class="metric-title">
+
+                    Today's Cost
+
+                </div>
+
+                <div class="metric-value">
+
+                    $0.0043
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-3">
+
+            <div class="metric-card">
+
+                <div class="metric-title">
+
+                    Model
+
+                </div>
+
+                <div class="metric-value fs-5">
+
+                    gemini-2.5-flash
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Bottom Row -->
+
+    <div class="row mt-4">
+
+        <div class="col-lg-8">
+
+            <div class="card">
+
+                <h5 class="card-title">
+
+                    Quick Ask AI
+
+                </h5>
+
+                <textarea
+                    class="form-control"
+                    rows="5"
+                    placeholder="Ask anything about your knowledge base..."
+                ></textarea>
+
+                <button class="btn btn-primary mt-3">
+
+                    <i class="bi bi-stars"></i>
+
+                    Ask AI
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <div class="col-lg-4">
+
+            <div class="card">
+
+                <h5 class="card-title">
+
+                    System Information
+
+                </h5>
+
+                <table class="table">
+
+                    <tr>
+
+                        <td>Status</td>
+
+                        <td>
+
+                            <span class="badge bg-success">
+
+                                Ready
+
+                            </span>
+
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <td>Vector DB</td>
+
+                        <td>ChromaDB</td>
+
+                    </tr>
+
+                    <tr>
+
+                        <td>Embedding</td>
+
+                        <td>BAAI/bge-small</td>
+
+                    </tr>
+
+                    <tr>
+
+                        <td>Dataset</td>
+
+                        <td>CSV</td>
+
+                    </tr>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
