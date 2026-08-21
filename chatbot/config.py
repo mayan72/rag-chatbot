@@ -26,11 +26,18 @@ DATA_DIR = BASE_DIR / "data"
 
 VECTOR_DB_DIR = BASE_DIR / "vector_db"
 
+TABLE_STORE_DIR = BASE_DIR / "table_store"
+
 LOG_DIR = BASE_DIR / "logs"
 
 CSV_FILE = DATA_DIR / "data.csv"
 
 VECTOR_DB_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+TABLE_STORE_DIR.mkdir(
     parents=True,
     exist_ok=True,
 )
@@ -114,9 +121,16 @@ CHUNK_OVERLAP = 100
 # Retrieval
 # ============================================================================
 
-TOP_K_RESULTS = 5
+TOP_K_RESULTS = 8
 
-SIMILARITY_THRESHOLD = 0.45
+SIMILARITY_THRESHOLD = 0.62
+
+MIN_CHUNK_SIMILARITY = 0.58
+
+MAX_CONTEXT_CHUNKS = 5
+
+# Unique values inspected when matching filter text to a column.
+MAX_VALUE_MATCH_CANDIDATES = 5000
 
 
 

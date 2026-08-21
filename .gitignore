@@ -36,9 +36,8 @@ htmlcov/
 *.db
 *.sqlite3
 
-# Chroma / vector DB
-chroma_db/
-.chroma/
+table_store/
+vector_db/
 
 # Generated files
 *.xlsx

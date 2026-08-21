@@ -9,10 +9,13 @@ import time
 from typing import Dict, Any, List
 
 from google import genai
+from google.genai import types
 
 from config import (
     GOOGLE_API_KEY,
     LLM_MODEL,
+    LLM_TEMPERATURE,
+    MAX_OUTPUT_TOKENS,
 )
 
 from llm.base_llm import BaseLLM
@@ -60,26 +63,25 @@ class GoogleLLM(BaseLLM):
 
         try:
 
-            # -----------------------------------------
-            # Convert OpenAI messages → prompt
-            # -----------------------------------------
-
-            prompt = ""
+            system_text = ""
+            user_parts = []
 
             for message in messages:
-
-                prompt += (
-                    f"{message['role'].upper()}:\n"
-                    f"{message['content']}\n\n"
-                )
-
-            # -----------------------------------------
-            # Gemini Call
-            # -----------------------------------------
+                role = message.get("role", "")
+                content = message.get("content", "")
+                if role == "system":
+                    system_text += content + "\n"
+                else:
+                    user_parts.append(content)
 
             response = self.client.models.generate_content(
                 model=self.model,
-                contents=prompt,
+                contents="\n\n".join(user_parts).strip(),
+                config=types.GenerateContentConfig(
+                    system_instruction=system_text.strip() or None,
+                    temperature=LLM_TEMPERATURE,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                ),
             )
 
             llm_time = (

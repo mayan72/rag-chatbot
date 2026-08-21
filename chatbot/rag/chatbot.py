@@ -31,6 +31,7 @@ from config import (
 from llm.llm_factory import LLMFactory
 from rag.retriever import SemanticRetriever
 from rag.prompt_builder import PromptBuilder
+from rag.hybrid_qa import HybridQAEngine
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class RAGChatbot:
 
         self.prompt_builder = PromptBuilder()
         self.run_logger = RunLogger()
+        self.hybrid_qa = None
 
         # -------------------------------------------------------
         # Grok Client
@@ -69,6 +71,7 @@ class RAGChatbot:
         #     api_key=GOOGLE_API_KEY
         # )
         self.llm = LLMFactory.create()
+        self.hybrid_qa = HybridQAEngine(llm=self.llm)
 
         self.cost_calculator = CostCalculator()
 
@@ -97,6 +100,72 @@ class RAGChatbot:
         overall_start = time.perf_counter()
 
         request_id = str(uuid.uuid4())
+
+        # -------------------------------------------------------
+        # Step 0 : Structured table QA (counts / sums / filters)
+        # -------------------------------------------------------
+
+        structured = self.hybrid_qa.answer(question)
+
+        if structured and structured.matched:
+
+            total_time = (
+                time.perf_counter() - overall_start
+            ) * 1000
+
+            log_payload = {
+                "status": "SUCCESS",
+                "timestamp": datetime.now().isoformat(),
+                "request_id": request_id,
+                "provider": "structured",
+                "model": "table-engine",
+                "question": question,
+                "answer": structured.answer,
+                "confidence": 1.0,
+                "max_similarity": 1.0,
+                "should_answer": True,
+                "chunks_retrieved": len(structured.sources or []),
+                "context_length": 0,
+                "retrieval_time_ms": 0,
+                "llm_time_ms": 0,
+                "llm_provider_latency_ms": 0,
+                "total_time_ms": round(total_time, 2),
+                "retrieval_threshold": SIMILARITY_THRESHOLD,
+                "top_k": TOP_K_RESULTS,
+                "temperature": LLM_TEMPERATURE,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "input_cost": 0,
+                "output_cost": 0,
+                "embedding_cost": 0,
+                "total_cost": 0,
+                "sources": structured.sources or [],
+                "error": "",
+            }
+
+            self.run_logger.log_success(log_payload)
+
+            return {
+                "answer": structured.answer,
+                "confidence": 1.0,
+                "provider": "structured",
+                "model": "table-engine",
+                "sources": structured.sources or [],
+                "retrieval_time_ms": 0,
+                "llm_time_ms": 0,
+                "llm_provider_latency_ms": 0,
+                "total_time_ms": round(total_time, 2),
+                "chunks_retrieved": len(structured.sources or []),
+                "context_length": 0,
+                "retrieval_threshold": SIMILARITY_THRESHOLD,
+                "top_k": TOP_K_RESULTS,
+                "temperature": LLM_TEMPERATURE,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "cost": 0,
+            }
 
         # -------------------------------------------------------
         # Step 1 : Retrieve
