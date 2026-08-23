@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from rag.hybrid_qa import HybridQAEngine
 from rag.query_planner import QueryPlanner
 from rag.structured_executor import StructuredExecutor
 from rag.table_store import TableStore
@@ -133,3 +134,70 @@ def test_non_aggregate_stays_semantic(tmp_path):
         llm=None,
     )
     assert plan.mode == "semantic"
+
+
+def test_correlation_between_quantity_and_revenue(tmp_path):
+    sales = pd.DataFrame(
+        {
+            "Order_ID": [1, 2, 3, 4],
+            "Quantity": [2, 4, 6, 8],
+            "Revenue": [100.0, 200.0, 300.0, 400.0],
+            "Metric": [None, None, None, None],
+            "Expected_Value": [None, None, None, None],
+        }
+    )
+    expected_sheet = pd.DataFrame(
+        {
+            "Order_ID": [None],
+            "Quantity": [None],
+            "Revenue": [None],
+            "Metric": ["Total Revenue"],
+            "Expected_Value": [4028000.0],
+        }
+    )
+    stacked = pd.concat([sales, expected_sheet], ignore_index=True)
+    store, planner, executor = _engine(tmp_path, {"workbook": stacked})
+    schemas = store.list_schemas()
+
+    plan = planner.plan(
+        "What is the correlation between quantity and revenue?",
+        schemas,
+        llm=None,
+    )
+
+    assert plan.mode == "aggregate"
+    assert plan.operation == "correlation"
+    assert {plan.target_column, plan.second_column} == {"Quantity", "Revenue"}
+    result = executor.execute(plan, schemas)
+    assert float(result.answer) == 1.0
+    assert result.row_count == 4
+
+    hybrid = HybridQAEngine(table_store=store, llm=None)
+    hybrid_result = hybrid.answer(
+        "What is the correlation between quantity and revenue?"
+    )
+    assert hybrid_result is not None
+    assert hybrid_result.operation == "correlation"
+    assert float(hybrid_result.answer) == 1.0
+
+
+def test_correlation_uses_pearson_on_numeric_pairs(tmp_path):
+    sales = pd.DataFrame(
+        {
+            "Quantity": [1, 2, 3, 10],
+            "Revenue": [10, 12, 14, 11],
+        }
+    )
+    store, planner, executor = _engine(tmp_path, {"sales": sales})
+    schemas = store.list_schemas()
+    plan = planner.plan(
+        "What is the correlation between Quantity and Revenue?",
+        schemas,
+        llm=None,
+    )
+    result = executor.execute(plan, schemas)
+    expected = float(
+        pd.to_numeric(sales["Quantity"]).corr(pd.to_numeric(sales["Revenue"]))
+    )
+    assert abs(float(result.value) - expected) < 1e-9
+    assert result.answer == str(round(expected, 4))

@@ -62,6 +62,12 @@ class StructuredExecutor:
                 continue
             if result.row_count > best_result.row_count:
                 best_result = result
+            elif (
+                result.row_count == best_result.row_count
+                and result.value is not None
+                and best_result.value is None
+            ):
+                best_result = result
 
         return best_result or StructuredResult(
             matched=True,
@@ -77,6 +83,8 @@ class StructuredExecutor:
         needed = {item.column for item in plan.filters}
         if plan.target_column:
             needed.add(plan.target_column)
+        if plan.second_column:
+            needed.add(plan.second_column)
 
         for schema in schemas:
             document_id = schema.get("document_id")
@@ -111,16 +119,31 @@ class StructuredExecutor:
             rows_after=len(filtered),
             operation=plan.operation,
             target_column=plan.target_column,
+            second_column=plan.second_column,
             applied=applied,
             sample_after=filtered.head(3).astype(str).to_dict(orient="records"),
         )
 
         value = self._aggregate(filtered, plan)
+        row_count = int(len(filtered))
+        if plan.operation == "correlation" and plan.target_column and plan.second_column:
+            if plan.target_column in filtered.columns and plan.second_column in filtered.columns:
+                paired = pd.DataFrame(
+                    {
+                        "left": pd.to_numeric(
+                            filtered[plan.target_column], errors="coerce"
+                        ),
+                        "right": pd.to_numeric(
+                            filtered[plan.second_column], errors="coerce"
+                        ),
+                    }
+                ).dropna()
+                row_count = int(len(paired))
         dbg(
             "EXECUTOR_VALUE",
             document_name=schema.get("document_name"),
             value=value,
-            row_count=int(len(filtered)),
+            row_count=row_count,
         )
         sources = self._sample_sources(filtered, schema)
 
@@ -138,7 +161,7 @@ class StructuredExecutor:
             answer=answer,
             value=value,
             operation=plan.operation,
-            row_count=int(len(filtered)),
+            row_count=row_count,
             filters=applied,
             sources=sources,
             table_id=schema.get("document_id", ""),
@@ -225,6 +248,9 @@ class StructuredExecutor:
         if plan.operation == "count":
             return int(len(frame))
 
+        if plan.operation == "correlation":
+            return self._correlation(frame, plan.target_column, plan.second_column)
+
         column = plan.target_column
         if not column or column not in frame.columns:
             return None
@@ -246,6 +272,31 @@ class StructuredExecutor:
         if plan.operation == "max":
             return numeric.max()
         return None
+
+    def _correlation(
+        self,
+        frame: pd.DataFrame,
+        left: Optional[str],
+        right: Optional[str],
+    ):
+        if not left or not right:
+            return None
+        if left not in frame.columns or right not in frame.columns:
+            return None
+        paired = pd.DataFrame(
+            {
+                "left": pd.to_numeric(frame[left], errors="coerce"),
+                "right": pd.to_numeric(frame[right], errors="coerce"),
+            }
+        ).dropna()
+        if len(paired) < 2:
+            return None
+        if paired["left"].nunique() < 2 or paired["right"].nunique() < 2:
+            return None
+        value = paired["left"].corr(paired["right"], method="pearson")
+        if pd.isna(value):
+            return None
+        return float(value)
 
     def _sample_sources(
         self,

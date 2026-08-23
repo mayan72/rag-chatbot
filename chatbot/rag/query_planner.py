@@ -30,6 +30,7 @@ ALLOWED_OPERATIONS = {
     "min",
     "max",
     "distinct_count",
+    "correlation",
 }
 
 ALLOWED_FILTER_OPS = {
@@ -60,6 +61,10 @@ AGGREGATE_HINTS = (
     "max ",
     "distinct",
     "unique",
+    "correlation",
+    "correlated",
+    "corr(",
+    "pearson",
 )
 
 PLANNER_SYSTEM_PROMPT = """
@@ -67,14 +72,15 @@ You convert a user question into a JSON query plan over uploaded tables.
 
 Use ONLY column names from the provided schemas.
 Never invent columns.
-If the question is not a table aggregation (count/sum/avg/min/max/distinct count),
+If the question is not a table aggregation (count/sum/avg/min/max/distinct count/correlation),
 return {"mode":"semantic"}.
 
 Return JSON only with this shape:
 {
   "mode": "aggregate" | "semantic",
-  "operation": "count" | "sum" | "avg" | "min" | "max" | "distinct_count",
+  "operation": "count" | "sum" | "avg" | "min" | "max" | "distinct_count" | "correlation",
   "target_column": null or column name,
+  "second_column": null or column name (required for correlation),
   "table_id": null or document_id,
   "filters": [
     {"column": "exact column name", "op": "eq|contains|gt|gte|lt|lte|ne", "value": "..."}
@@ -96,6 +102,7 @@ class QueryPlan:
     mode: str
     operation: str = "count"
     target_column: Optional[str] = None
+    second_column: Optional[str] = None
     table_id: Optional[str] = None
     filters: List[QueryFilter] = field(default_factory=list)
     confidence: float = 0.0
@@ -137,6 +144,17 @@ class QueryPlanner:
 
         if not self._looks_like_aggregate(lowered, columns):
             return QueryPlan(mode="semantic", reason="not an aggregation question")
+
+        correlation_plan = self._correlation_plan(question, schemas, columns)
+        if correlation_plan is not None:
+            return correlation_plan
+        if self._detect_operation(lowered) == "correlation":
+            return QueryPlan(
+                mode="aggregate",
+                operation="correlation",
+                confidence=0.8,
+                reason="correlation columns not found",
+            )
 
         operation = self._detect_operation(lowered)
         filters: List[QueryFilter] = []
@@ -248,6 +266,53 @@ class QueryPlanner:
             reason="heuristic",
         )
 
+    def _correlation_plan(
+        self,
+        question: str,
+        schemas: List[dict],
+        columns: List[str],
+    ) -> Optional[QueryPlan]:
+        pair = self._parse_correlation_pair(question, columns)
+        if pair is None:
+            return None
+        left, right = pair
+        table_id = self._choose_table_id(schemas, {left, right})
+        return QueryPlan(
+            mode="aggregate",
+            operation="correlation",
+            target_column=left,
+            second_column=right,
+            table_id=table_id,
+            filters=[],
+            confidence=0.93,
+            reason="heuristic-correlation",
+        )
+
+    def _parse_correlation_pair(
+        self,
+        question: str,
+        columns: List[str],
+    ) -> Optional[tuple]:
+        patterns = (
+            r"(?i)\b(?:pearson\s+)?corr(?:elation)?(?:\s+coefficient)?\s+(?:between|of)\s+(.+?)\s+and\s+(.+?)\s*$",
+            r"(?i)\bhow\s+(?:strongly|well)\s+(?:are|is)\s+(.+?)\s+(?:and|&)\s+(.+?)\s+correlated",
+            r"(?i)\bcorr\s*\(\s*([^,]+)\s*,\s*([^)]+)\s*\)",
+        )
+        match = None
+        for pattern in patterns:
+            match = re.search(pattern, question.strip().rstrip("?"))
+            if match:
+                break
+        if not match:
+            return None
+        left_hit = best_column_match(match.group(1).strip(), columns, min_score=0.55)
+        right_hit = best_column_match(match.group(2).strip(), columns, min_score=0.55)
+        if not left_hit or not right_hit:
+            return None
+        if left_hit[0] == right_hit[0]:
+            return None
+        return left_hit[0], right_hit[0]
+
     def _looks_like_aggregate(self, lowered: str, columns: List[str]) -> bool:
         if any(hint in lowered for hint in AGGREGATE_HINTS):
             return True
@@ -311,6 +376,11 @@ class QueryPlanner:
         return best
 
     def _detect_operation(self, lowered: str) -> str:
+        if any(
+            token in lowered
+            for token in ("correlation", "correlated", "pearson", "corr(")
+        ):
+            return "correlation"
         if any(token in lowered for token in ("average", "avg ", "mean ")):
             return "avg"
         if re.search(r"\btotal\s+(number|count)\s+of\s+rows\b", lowered):
@@ -424,15 +494,33 @@ class QueryPlanner:
             )
             target_column = target_hit[0] if target_hit else None
 
+        second_column = parsed.get("second_column")
+        if second_column:
+            second_hit = best_column_match(
+                str(second_column),
+                public_columns,
+                min_score=0.6,
+            )
+            second_column = second_hit[0] if second_hit else None
+
         table_id = parsed.get("table_id")
         valid_ids = {schema.get("document_id") for schema in schemas}
         if table_id not in valid_ids:
             table_id = None
 
+        needed = {item.column for item in filters}
+        if target_column:
+            needed.add(target_column)
+        if second_column:
+            needed.add(second_column)
+        if needed and table_id is None:
+            table_id = self._choose_table_id(schemas, needed)
+
         return QueryPlan(
             mode="aggregate",
             operation=operation,
             target_column=target_column,
+            second_column=second_column,
             table_id=table_id,
             filters=filters,
             confidence=0.9,
