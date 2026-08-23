@@ -31,6 +31,8 @@ from config import (
     CHROMA_DB_PATH,
     TOP_K_RESULTS,
     SIMILARITY_THRESHOLD,
+    MIN_CHUNK_SIMILARITY,
+    MAX_CONTEXT_CHUNKS,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,6 +105,11 @@ class SemanticRetriever:
         )
 
         logger.info("Retriever initialized successfully.")
+
+    def _distance_to_cosine(self, distance: float) -> float:
+        d = float(distance)
+        similarity = 1.0 - (d * d) / 2.0
+        return max(0.0, min(1.0, similarity))
 
 
     # ============================================================
@@ -193,12 +200,8 @@ class SemanticRetriever:
         for chunk in chunks:
 
             metadata = dict(chunk.metadata)
-
-            metadata["similarity"] = round(
-                chunk.similarity,
-                4,
-            )
-
+            metadata["similarity"] = round(chunk.similarity, 4)
+            metadata["content"] = chunk.content
             sources.append(metadata)
 
         return sources
@@ -227,14 +230,36 @@ class SemanticRetriever:
 
         for index, chunk in enumerate(chunks, start=1):
 
+            metadata = chunk.metadata or {}
+            source_name = metadata.get("document_name", "unknown")
+            row_number = metadata.get("row_number", "")
+
+            extra_fields = []
+            for key, value in metadata.items():
+                if key in {
+                    "document_name",
+                    "document_id",
+                    "source_type",
+                    "row_number",
+                    "similarity",
+                    "content",
+                }:
+                    continue
+                if value is None:
+                    continue
+                extra_fields.append(f"{key}: {value}")
+
+            extras = "\n".join(extra_fields)
+            extras_block = f"\n{extras}\n" if extras else "\n"
+
             context_parts.append(
                 f"""
 ==============================
 DOCUMENT {index}
 ==============================
-
-Similarity Score : {chunk.similarity:.4f}
-
+Source: {source_name} | Row: {row_number}
+Similarity: {chunk.similarity:.4f}
+{extras_block}
 Content:
 {chunk.content.strip()}
 """
@@ -295,7 +320,7 @@ Content:
 
         for document, distance in results:
 
-            similarity = 1.0 / (1.0 + float(distance))
+            similarity = self._distance_to_cosine(distance)
 
             chunk = RetrievedChunk(
                 content=document.page_content,
@@ -305,24 +330,25 @@ Content:
 
             chunks.append(chunk)
 
-            similarities.append(similarity)
-
-        # -------------------------------------------------------
-        # Remove duplicate chunks
-        # -------------------------------------------------------
-
         chunks = self._deduplicate_chunks(chunks)
 
-        # -------------------------------------------------------
-        # Confidence
-        # -------------------------------------------------------
+        chunks = [
+            chunk
+            for chunk in chunks
+            if chunk.similarity >= MIN_CHUNK_SIMILARITY
+        ]
+
+        chunks = chunks[:MAX_CONTEXT_CHUNKS]
+
+        similarities = [chunk.similarity for chunk in chunks]
 
         confidence = self._calculate_confidence(similarities)
 
         max_similarity = max(similarities) if similarities else 0.0
 
         should_answer = (
-            max_similarity >= SIMILARITY_THRESHOLD
+            bool(chunks)
+            and max_similarity >= SIMILARITY_THRESHOLD
         )
 
         # -------------------------------------------------------

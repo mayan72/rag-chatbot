@@ -36,6 +36,7 @@ from config import (
     CHUNK_SIZE,
     CHUNK_OVERLAP,
 )
+from rag.table_store import TableStore
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,8 @@ class KnowledgeService:
             chunk_size=CHUNK_SIZE,
             chunk_overlap=CHUNK_OVERLAP,
         )
+
+        self.table_store = TableStore()
 
         logger.info(
             "KnowledgeService initialized successfully."
@@ -290,12 +293,12 @@ class KnowledgeService:
         markdown = (
             result.document
             .export_to_markdown()
-        )
-
-        markdown = markdown.strip()
+        ).strip()
 
         if not markdown:
             return []
+
+        markdown = self._flatten_markdown_tables(markdown)
 
         return [
             Document(
@@ -307,6 +310,48 @@ class KnowledgeService:
                 },
             )
         ]
+
+    def _looks_like_amount(self, text: str) -> bool:
+        text = text.strip().replace(",", "")
+        if not text:
+            return False
+        if text[:1] in "+-":
+            text = text[1:]
+        if text.startswith("$"):
+            text = text[1:]
+        try:
+            float(text)
+            return True
+        except ValueError:
+            return False
+
+    def _collapse_table_row(self, line: str) -> str:
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        cells = [cell for cell in cells if cell and set(cell) != {"-"}]
+        unique = []
+        for cell in cells:
+            if not unique or unique[-1] != cell:
+                unique.append(cell)
+        if len(unique) >= 2 and self._looks_like_amount(unique[-1]):
+            return f"{unique[-2]}: {unique[-1]}"
+        return " | ".join(unique)
+
+    def _flatten_markdown_tables(self, markdown: str) -> str:
+        lines = markdown.splitlines()
+        out = []
+        index = 0
+        while index < len(lines):
+            line = lines[index]
+            if "|" in line:
+                while index < len(lines) and "|" in lines[index]:
+                    collapsed = self._collapse_table_row(lines[index])
+                    if collapsed:
+                        out.append(collapsed)
+                    index += 1
+                continue
+            out.append(line)
+            index += 1
+        return "\n".join(out)
 
     # ========================================================
     # Extract
@@ -331,7 +376,7 @@ class KnowledgeService:
                 filename,
             )
 
-        if extension == ".xlsx":
+        if extension == ".xlsx" or extension == ".xls":
 
             return self._load_xlsx(
                 file_path,
@@ -439,13 +484,20 @@ class KnowledgeService:
             len(documents),
         )
 
-        # ----------------------------------------------------
-        # Chunk
-        # ----------------------------------------------------
+        extension = file_path.suffix.lower()
 
-        chunks = self.splitter.split_documents(
-            documents
-        )
+        if extension in {".csv", ".xlsx", ".xls"}:
+            self.table_store.delete(document_id)
+            self.table_store.upsert_from_file(
+                file_path=file_path,
+                filename=filename,
+                document_id=document_id,
+            )
+            chunks = documents
+        else:
+            chunks = self.splitter.split_documents(
+                documents
+            )
 
         logger.info(
             "Created %d chunks.",
