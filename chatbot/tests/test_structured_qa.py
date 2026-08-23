@@ -97,6 +97,33 @@ def test_typo_value_still_matches(tmp_path):
     assert result_high.answer == "1"
 
 
+def test_total_revenue_for_region(tmp_path):
+    sales = pd.DataFrame(
+        {
+            "Region": ["North", "South", "North", "West"],
+            "Revenue": [275000, 50000, 330000, 10000],
+        }
+    )
+    store, planner, executor = _engine(tmp_path, {"sales": sales})
+    schemas = store.list_schemas()
+
+    plan = planner.plan(
+        "What is the total revenue for the North region?",
+        schemas,
+        llm=None,
+    )
+
+    assert plan.mode == "aggregate"
+    assert plan.operation == "sum"
+    assert plan.target_column == "Revenue"
+    assert any(
+        item.column == "Region" and "north" in item.value.casefold()
+        for item in plan.filters
+    )
+    result = executor.execute(plan, schemas)
+    assert float(result.answer) == 605000.0
+
+
 def test_non_aggregate_stays_semantic(tmp_path):
     sales = pd.DataFrame({"region": ["EMEA"], "note": ["Demand improved"]})
     store, planner, _ = _engine(tmp_path, {"sales": sales})
