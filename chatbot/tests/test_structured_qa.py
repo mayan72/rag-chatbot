@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from rag.hybrid_qa import HybridQAEngine
 from rag.query_planner import QueryPlanner
 from rag.structured_executor import StructuredExecutor
 from rag.table_store import TableStore
@@ -171,6 +172,14 @@ def test_correlation_between_quantity_and_revenue(tmp_path):
     assert float(result.answer) == 1.0
     assert result.row_count == 4
 
+    hybrid = HybridQAEngine(table_store=store, llm=None)
+    hybrid_result = hybrid.answer(
+        "What is the correlation between quantity and revenue?"
+    )
+    assert hybrid_result is not None
+    assert hybrid_result.operation == "correlation"
+    assert float(hybrid_result.answer) == 1.0
+
 
 def test_correlation_uses_pearson_on_numeric_pairs(tmp_path):
     sales = pd.DataFrame(
@@ -190,4 +199,5 @@ def test_correlation_uses_pearson_on_numeric_pairs(tmp_path):
     expected = float(
         pd.to_numeric(sales["Quantity"]).corr(pd.to_numeric(sales["Revenue"]))
     )
-    assert abs(float(result.answer) - expected) < 1e-6
+    assert abs(float(result.value) - expected) < 1e-9
+    assert result.answer == str(round(expected, 4))
