@@ -74,6 +74,7 @@ class HybridQAEngine:
             mode=plan.mode,
             operation=plan.operation,
             target_column=plan.target_column,
+            second_column=plan.second_column,
             table_id=plan.table_id,
             confidence=plan.confidence,
             reason=plan.reason,
