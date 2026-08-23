@@ -60,6 +60,7 @@ class HybridQAEngine:
 
         if not schemas:
             dbg("HYBRID_SKIP", reason="no tables in table_store")
+        if not schemas:
             return None
 
         plan = self.planner.plan(
