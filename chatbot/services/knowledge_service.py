@@ -365,9 +365,7 @@ class KnowledgeService:
         document_id: str,
     ) -> List[Document]:
 
-        extension = (
-            file_path.suffix.lower()
-        )
+        extension = Path(filename).suffix.lower() or file_path.suffix.lower()
 
         if extension == ".csv":
 
@@ -485,21 +483,35 @@ class KnowledgeService:
             len(documents),
         )
 
-        extension = file_path.suffix.lower()
+        extension = Path(filename).suffix.lower() or file_path.suffix.lower()
 
         if extension in {".csv", ".xlsx", ".xls"}:
             self.table_store.delete(document_id)
-            self.table_store.upsert_from_file(
+            saved = self.table_store.upsert_from_file(
                 file_path=file_path,
                 filename=filename,
                 document_id=document_id,
             )
+            if not saved:
+                raise ValueError(
+                    "Spreadsheet rows were extracted for search, "
+                    "but no table was written to table_store. "
+                    "Check that openpyxl is installed and the sheet is not empty."
+                )
+            table_dir = self.table_store.root / document_id
             chunks = documents
+            logger.info(
+                "Table store saved | path=%s | rows=%s",
+                table_dir,
+                saved.get("row_count"),
+            )
             dbg(
                 "INDEX_TABLE_SAVED",
                 filename=filename,
                 document_id=document_id,
                 extension=extension,
+                table_dir=str(table_dir),
+                row_count=saved.get("row_count"),
                 table_chunks=len(chunks),
             )
         else:
@@ -552,9 +564,14 @@ class KnowledgeService:
             len(chunks),
         )
 
-        return {
+        result = {
             "document_id": document_id,
             "document_name": filename,
             "chunks_created": len(chunks),
             "status": "completed",
         }
+        if extension in {".csv", ".xlsx", ".xls"}:
+            result["table_store_path"] = str(
+                self.table_store.root / document_id / "data.jsonl"
+            )
+        return result

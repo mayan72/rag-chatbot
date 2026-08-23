@@ -86,10 +86,11 @@ class TableStore:
         )
 
         logger.info(
-            "Stored table | id=%s | rows=%d | columns=%d",
+            "Stored table | id=%s | rows=%d | columns=%d | path=%s",
             document_id,
             len(stored),
             len(stored.columns),
+            data_path,
         )
 
         return schema
@@ -101,7 +102,7 @@ class TableStore:
         document_id: Optional[str] = None,
     ) -> Optional[dict]:
         path = Path(file_path)
-        suffix = path.suffix.lower()
+        suffix = Path(filename).suffix.lower() or path.suffix.lower()
         document_id = document_id or make_document_id(filename)
 
         if suffix == ".csv":
