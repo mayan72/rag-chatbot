@@ -32,6 +32,7 @@ from llm.llm_factory import LLMFactory
 from rag.retriever import SemanticRetriever
 from rag.prompt_builder import PromptBuilder
 from rag.hybrid_qa import HybridQAEngine
+from debug_trace import dbg
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +101,26 @@ class RAGChatbot:
         overall_start = time.perf_counter()
 
         request_id = str(uuid.uuid4())
+        dbg("ASK_START", request_id=request_id, question=question)
 
         # -------------------------------------------------------
         # Step 0 : Structured table QA (counts / sums / filters)
         # -------------------------------------------------------
 
         structured = self.hybrid_qa.answer(question)
+        dbg(
+            "STEP0_STRUCTURED_RESULT",
+            request_id=request_id,
+            has_result=bool(structured),
+            matched=getattr(structured, "matched", None),
+            answer=getattr(structured, "answer", None),
+            operation=getattr(structured, "operation", None),
+            row_count=getattr(structured, "row_count", None),
+            table_id=getattr(structured, "table_id", None),
+            document_name=getattr(structured, "document_name", None),
+            filters=getattr(structured, "filters", None),
+            source_count=len(getattr(structured, "sources", None) or []),
+        )
 
         if structured and structured.matched:
 
@@ -172,6 +187,22 @@ class RAGChatbot:
         # -------------------------------------------------------
 
         retrieval = self.retriever.retrieve(question)
+        dbg(
+            "STEP1_RAG_RETRIEVAL",
+            request_id=request_id,
+            should_answer=retrieval.should_answer,
+            confidence=retrieval.confidence,
+            max_similarity=retrieval.max_similarity,
+            chunk_count=len(retrieval.chunks),
+            chunk_preview=[
+                {
+                    "similarity": round(chunk.similarity, 4),
+                    "text": (chunk.content or "")[:240],
+                    "meta": chunk.metadata,
+                }
+                for chunk in retrieval.chunks[:5]
+            ],
+        )
 
         logger.info(
             "Retrieval completed | "
@@ -351,6 +382,15 @@ class RAGChatbot:
 
         llm_result = self.llm.generate(
             messages
+        )
+        dbg(
+            "STEP4_LLM_ANSWER",
+            request_id=request_id,
+            provider=self.llm.provider,
+            model=self.llm.model,
+            answer=(llm_result.get("answer") or "")[:500],
+            input_tokens=llm_result.get("input_tokens"),
+            output_tokens=llm_result.get("output_tokens"),
         )
 
         provider_latency = (

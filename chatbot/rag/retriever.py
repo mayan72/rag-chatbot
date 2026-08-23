@@ -34,6 +34,7 @@ from config import (
     MIN_CHUNK_SIMILARITY,
     MAX_CONTEXT_CHUNKS,
 )
+from debug_trace import dbg
 
 logger = logging.getLogger(__name__)
 
@@ -372,6 +373,20 @@ Content:
             confidence,
             max_similarity,
             retrieval_time,
+        )
+        dbg(
+            "RETRIEVE_SCORES",
+            k=len(results),
+            kept=len(chunks),
+            should_answer=should_answer,
+            max_similarity=max_similarity,
+            scores=[
+                {
+                    "sim": round(chunk.similarity, 4),
+                    "preview": (chunk.content or "")[:180],
+                }
+                for chunk in chunks
+            ],
         )
 
         return RetrievalResult(

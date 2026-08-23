@@ -37,6 +37,7 @@ from config import (
     CHUNK_OVERLAP,
 )
 from rag.table_store import TableStore
+from debug_trace import dbg
 
 logger = logging.getLogger(__name__)
 
@@ -494,9 +495,23 @@ class KnowledgeService:
                 document_id=document_id,
             )
             chunks = documents
+            dbg(
+                "INDEX_TABLE_SAVED",
+                filename=filename,
+                document_id=document_id,
+                extension=extension,
+                table_chunks=len(chunks),
+            )
         else:
             chunks = self.splitter.split_documents(
                 documents
+            )
+            dbg(
+                "INDEX_DOC_CHUNKED",
+                filename=filename,
+                document_id=document_id,
+                extension=extension,
+                chunks=len(chunks),
             )
 
         logger.info(

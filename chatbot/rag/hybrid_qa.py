@@ -13,6 +13,7 @@ from typing import Any, Optional
 from rag.query_planner import QueryPlanner
 from rag.structured_executor import StructuredExecutor, StructuredResult
 from rag.table_store import TableStore
+from debug_trace import dbg
 
 logger = logging.getLogger(__name__)
 
@@ -33,18 +34,57 @@ class HybridQAEngine:
         self.table_store.sync_from_data_dir()
 
     def answer(self, question: str) -> Optional[StructuredResult]:
+        dbg("HYBRID_START", question=question)
+
         schemas = self.table_store.list_schemas()
         if not schemas:
             self.table_store.sync_from_data_dir()
             schemas = self.table_store.list_schemas()
 
+        dbg(
+            "HYBRID_SCHEMAS",
+            schema_count=len(schemas),
+            tables=[
+                {
+                    "document_id": schema.get("document_id"),
+                    "document_name": schema.get("document_name"),
+                    "row_count": schema.get("row_count"),
+                    "columns": [
+                        column.get("name")
+                        for column in schema.get("columns", [])
+                    ][:40],
+                }
+                for schema in schemas
+            ],
+        )
+
         if not schemas:
+            dbg("HYBRID_SKIP", reason="no tables in table_store")
             return None
 
         plan = self.planner.plan(
             question=question,
             schemas=schemas,
             llm=self.llm,
+        )
+
+        dbg(
+            "HYBRID_PLAN",
+            mode=plan.mode,
+            operation=plan.operation,
+            target_column=plan.target_column,
+            table_id=plan.table_id,
+            confidence=plan.confidence,
+            reason=plan.reason,
+            filters=[
+                {
+                    "column": item.column,
+                    "op": item.op,
+                    "value": item.value,
+                    "score": item.score,
+                }
+                for item in plan.filters
+            ],
         )
 
         logger.info(
@@ -57,6 +97,7 @@ class HybridQAEngine:
         )
 
         if plan.mode != "aggregate":
+            dbg("HYBRID_SKIP", reason="plan is not aggregate", mode=plan.mode)
             return None
 
         return self.executor.execute(plan, schemas)
