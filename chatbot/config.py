@@ -114,9 +114,18 @@ CHUNK_OVERLAP = 100
 # Retrieval
 # ============================================================================
 
-TOP_K_RESULTS = 5
+# Fetch extra neighbors, then drop weak ones after scoring.
+TOP_K_RESULTS = 8
 
-SIMILARITY_THRESHOLD = 0.45
+# Cosine similarity (0–1). Typical BGE hits: 0.55–0.85.
+# Do not keep 0.45 after switching the score formula.
+SIMILARITY_THRESHOLD = 0.62
+
+# Drop individual chunks below this even if the best chunk passed.
+MIN_CHUNK_SIMILARITY = 0.58
+
+# Max chunks sent to the LLM (after filter).
+MAX_CONTEXT_CHUNKS = 3
 
 
 

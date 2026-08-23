@@ -32,36 +32,33 @@ from config import (
     CHUNK_OVERLAP,
 )
 
-
 def load_documents():
 
     df = pd.read_csv(CSV_FILE)
-
     print(f"Loaded {len(df)} rows")
 
     docs = []
 
     for idx, row in df.iterrows():
 
-        description = str(row.get("description", "")).strip()
-
-        if not description:
-            continue
-
-        metadata = {}
+        values = []
+        metadata = {"row_number": idx + 1}
 
         for col in df.columns:
-
-            if col == "description":
+            value = row[col]
+            if pd.isna(value):
                 continue
+            values.append(f"{col}: {value}")
+            if col != "description":
+                metadata[col] = str(value)
 
-            metadata[col] = str(row[col])
-
-        metadata["row_number"] = idx + 1
+        text = "\n".join(values).strip()
+        if not text:
+            continue
 
         docs.append(
             Document(
-                page_content=description,
+                page_content=text,
                 metadata=metadata,
             )
         )
@@ -118,24 +115,9 @@ def main():
     print("=" * 60)
 
     print("Loading CSV...")
-
     documents = load_documents()
-
-    print(f"Documents Loaded : {len(documents)}")
-
-    print()
-
-    print("Splitting Documents...")
-
-    chunks = split_documents(documents)
-
-    print(f"Chunks Created : {len(chunks)}")
-
-    print()
-
-    print("Creating Embeddings...")
-
-    build_vector_db(chunks)
+    # Keep one vector per CSV row. Splitting breaks numbers.
+    build_vector_db(documents)
 
 
 if __name__ == "__main__":

@@ -137,6 +137,62 @@ class KnowledgeService:
 
         return f"uploaded_{filename.replace('.', '_')}"
 
+    def _looks_like_amount(self, text: str) -> bool:
+        text = text.strip().replace(",", "")
+        if not text:
+            return False
+        if text.startswith(("+", "-")):
+            text = text[1:]
+        if text.startswith("$"):
+            text = text[1:]
+        try:
+            float(text)
+            return True
+        except ValueError:
+            return False
+
+    def _collapse_table_row(self, line: str) -> str:
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        cells = [c for c in cells if c and set(c) != {"-"}]
+
+        unique = []
+        for cell in cells:
+            if not unique or unique[-1] != cell:
+                unique.append(cell)
+
+        if len(unique) >= 2 and self._looks_like_amount(unique[-1]):
+            label = unique[-2]
+            value = unique[-1]
+            return f"{label}: {value}"
+
+        return " | ".join(unique)
+
+    def _flatten_markdown_tables(self, markdown: str) -> str:
+        """
+        Turns markdown table rows into 'label: value' lines
+        so RecursiveCharacterTextSplitter cannot split a number
+        away from its label.
+        """
+        lines = markdown.splitlines()
+        out = []
+        i = 0
+
+        while i < len(lines):
+            line = lines[i]
+
+            if "|" in line:
+                while i < len(lines) and "|" in lines[i]:
+                    collapsed = self._collapse_table_row(lines[i])
+                    if collapsed:
+                        out.append(collapsed)
+                    i += 1
+                continue
+
+            out.append(line)
+            i += 1
+
+        return "\n".join(out)
+
     # ========================================================
     # CSV
     # ========================================================
@@ -290,12 +346,12 @@ class KnowledgeService:
         markdown = (
             result.document
             .export_to_markdown()
-        )
-
-        markdown = markdown.strip()
+        ).strip()
 
         if not markdown:
             return []
+
+        markdown = self._flatten_markdown_tables(markdown)
 
         return [
             Document(
@@ -443,20 +499,12 @@ class KnowledgeService:
         # Chunk
         # ----------------------------------------------------
 
-        chunks = self.splitter.split_documents(
-            documents
-        )
+        extension = file_path.suffix.lower()
 
-        logger.info(
-            "Created %d chunks.",
-            len(chunks),
-        )
-
-        if not chunks:
-
-            raise ValueError(
-                "No chunks were created from the document."
-            )
+        if extension in {".csv", ".xlsx"}:
+            chunks = documents
+        else:
+            chunks = self.splitter.split_documents(documents)
 
         # ----------------------------------------------------
         # Replace existing document

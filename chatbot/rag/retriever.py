@@ -31,6 +31,8 @@ from config import (
     CHROMA_DB_PATH,
     TOP_K_RESULTS,
     SIMILARITY_THRESHOLD,
+    MIN_CHUNK_SIMILARITY,
+    MAX_CONTEXT_CHUNKS,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,6 +105,16 @@ class SemanticRetriever:
         )
 
         logger.info("Retriever initialized successfully.")
+
+    def _distance_to_cosine(self, distance: float) -> float:
+        """
+        Chroma default space is L2.
+        Embeddings are L2-normalized, so:
+            cosine_sim = 1 - (L2 ** 2) / 2
+        """
+        d = float(distance)
+        similarity = 1.0 - (d * d) / 2.0
+        return max(0.0, min(1.0, similarity))
 
 
     # ============================================================
@@ -184,41 +196,24 @@ class SemanticRetriever:
         return unique_chunks
     
     def _extract_sources(
-        self,
-        chunks: List[RetrievedChunk],
-    ) -> List[Dict[str, Any]]:
+    self,
+    chunks: List[RetrievedChunk],
+) -> List[Dict[str, Any]]:
 
         sources = []
 
         for chunk in chunks:
-
             metadata = dict(chunk.metadata)
-
-            metadata["similarity"] = round(
-                chunk.similarity,
-                4,
-            )
-
+            metadata["similarity"] = round(chunk.similarity, 4)
+            metadata["content"] = chunk.content
             sources.append(metadata)
 
         return sources
     
     def _build_context(
-        self,
-        chunks: List[RetrievedChunk],
-    ) -> str:
-        """
-        Build the context that will be sent to the LLM.
-
-        Each retrieved chunk is separated clearly so the model
-        can distinguish between different sources.
-
-        Args:
-            chunks: List of retrieved chunks.
-
-        Returns:
-            Context string.
-        """
+    self,
+    chunks: List[RetrievedChunk],
+) -> str:
 
         if not chunks:
             return ""
@@ -227,28 +222,31 @@ class SemanticRetriever:
 
         for index, chunk in enumerate(chunks, start=1):
 
+            metadata = chunk.metadata or {}
+            source_name = metadata.get("document_name", "unknown")
+            row_number = metadata.get("row_number", "")
+            sheet_name = metadata.get("sheet_name", "")
+
+            header_bits = [f"Source: {source_name}"]
+            if sheet_name:
+                header_bits.append(f"Sheet: {sheet_name}")
+            if row_number != "":
+                header_bits.append(f"Row: {row_number}")
+
             context_parts.append(
                 f"""
-==============================
-DOCUMENT {index}
-==============================
+    ==============================
+    DOCUMENT {index}
+    ==============================
+    {" | ".join(header_bits)}
+    Similarity: {chunk.similarity:.4f}
 
-Similarity Score : {chunk.similarity:.4f}
-
-Content:
-{chunk.content.strip()}
-"""
+    Content:
+    {chunk.content.strip()}
+    """
             )
 
-        context = "\n".join(context_parts)
-
-        logger.debug(
-            "Context built successfully | documents=%d | characters=%d",
-            len(chunks),
-            len(context),
-        )
-
-        return context
+        return "\n".join(context_parts)
         
         # ============================================================
     # Public API
@@ -295,7 +293,7 @@ Content:
 
         for document, distance in results:
 
-            similarity = 1.0 / (1.0 + float(distance))
+            similarity = self._distance_to_cosine(distance)
 
             chunk = RetrievedChunk(
                 content=document.page_content,
@@ -305,29 +303,26 @@ Content:
 
             chunks.append(chunk)
 
-            similarities.append(similarity)
-
-        # -------------------------------------------------------
-        # Remove duplicate chunks
-        # -------------------------------------------------------
-
         chunks = self._deduplicate_chunks(chunks)
 
-        # -------------------------------------------------------
-        # Confidence
-        # -------------------------------------------------------
+        chunks = [
+            chunk
+            for chunk in chunks
+            if chunk.similarity >= MIN_CHUNK_SIMILARITY
+        ]
+
+        chunks = chunks[:MAX_CONTEXT_CHUNKS]
+
+        similarities = [chunk.similarity for chunk in chunks]
 
         confidence = self._calculate_confidence(similarities)
 
         max_similarity = max(similarities) if similarities else 0.0
 
         should_answer = (
-            max_similarity >= SIMILARITY_THRESHOLD
+            bool(chunks)
+            and max_similarity >= SIMILARITY_THRESHOLD
         )
-
-        # -------------------------------------------------------
-        # Context
-        # -------------------------------------------------------
 
         context = self._build_context(chunks)
 
