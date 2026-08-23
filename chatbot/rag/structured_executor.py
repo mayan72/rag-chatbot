@@ -122,7 +122,6 @@ class StructuredExecutor:
             value=value,
             row_count=int(len(filtered)),
         )
-        value = self._aggregate(filtered, plan)
         sources = self._sample_sources(filtered, schema)
 
         if value is None:

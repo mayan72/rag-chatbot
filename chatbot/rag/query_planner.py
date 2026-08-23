@@ -45,9 +45,12 @@ ALLOWED_FILTER_OPS = {
 AGGREGATE_HINTS = (
     "count",
     "how many",
+    "how much",
     "number of",
     "total number",
+    "total ",
     "sum of",
+    "sum ",
     "average",
     "avg ",
     "mean ",
@@ -114,9 +117,9 @@ class QueryPlanner:
         if heuristic.mode == "aggregate" and heuristic.confidence >= 0.78:
             return heuristic
 
-        looks_structured = any(
-            hint in question.casefold()
-            for hint in AGGREGATE_HINTS
+        looks_structured = self._looks_like_aggregate(
+            question.casefold(),
+            self._public_columns(schemas),
         )
 
         if llm is not None and looks_structured:
@@ -128,14 +131,14 @@ class QueryPlanner:
 
     def _heuristic_plan(self, question: str, schemas: List[dict]) -> QueryPlan:
         lowered = question.casefold()
-        if not any(hint in lowered for hint in AGGREGATE_HINTS):
-            return QueryPlan(mode="semantic", reason="not an aggregation question")
-
-        operation = self._detect_operation(lowered)
         columns = self._public_columns(schemas)
         if not columns:
             return QueryPlan(mode="semantic", reason="tables have no columns")
 
+        if not self._looks_like_aggregate(lowered, columns):
+            return QueryPlan(mode="semantic", reason="not an aggregation question")
+
+        operation = self._detect_operation(lowered)
         filters: List[QueryFilter] = []
         used_spans = []
 
@@ -161,12 +164,29 @@ class QueryPlanner:
             )
             used_spans.append((match.start(), match.end()))
 
+        region_match = re.search(
+            r"(?i)\b(?:in|for)\s+(?:the\s+)?([A-Za-z0-9_ -]+?)\s+region\b",
+            question,
+        )
+        if region_match:
+            region_column = best_column_match("region", columns, min_score=0.6)
+            if region_column:
+                filters.append(
+                    QueryFilter(
+                        column=region_column[0],
+                        op="eq",
+                        value=region_match.group(1).strip(),
+                        score=region_column[1],
+                    )
+                )
+                used_spans.append((region_match.start(), region_match.end()))
+
         remainder = question
         for start, end in reversed(used_spans):
             remainder = remainder[:start] + " " + remainder[end:]
 
         remainder = re.sub(
-            r"(?i)\b(give me|tell me|what|the|sum of|average of|avg of|count of rows|count of|how many rows|number of rows|rows where|where|is|are|for|with|equals|please)\b",
+            r"(?i)\b(give me|tell me|what|the|sum of|average of|avg of|count of rows|count of|how many rows|number of rows|total|rows where|where|is|are|for|with|equals|please|region)\b",
             " ",
             remainder,
         )
@@ -174,7 +194,7 @@ class QueryPlanner:
 
         target_column = None
         metric_match = re.search(
-            r"(?i)\b(?:sum|average|avg|min|max|mean|distinct count|unique count)\s+of\s+([A-Za-z0-9_ ]+?)(?=\s+(?:where|for|with)\b|$)",
+            r"(?i)\b(?:sum|total|average|avg|min|max|mean|distinct count|unique count)\s+(?:of\s+)?([A-Za-z0-9_ ]+?)(?=\s+(?:where|for|with|in)\b|$)",
             question,
         )
         if metric_match:
@@ -213,14 +233,46 @@ class QueryPlanner:
         if operation == "count" and not filters:
             confidence = 0.8
 
+        needed = {item.column for item in filters}
+        if target_column:
+            needed.add(target_column)
+        table_id = self._choose_table_id(schemas, needed)
+
         return QueryPlan(
             mode="aggregate",
             operation=operation,
             target_column=target_column,
+            table_id=table_id,
             filters=filters,
             confidence=confidence,
             reason="heuristic",
         )
+
+    def _looks_like_aggregate(self, lowered: str, columns: List[str]) -> bool:
+        if any(hint in lowered for hint in AGGREGATE_HINTS):
+            return True
+        if re.search(r"\b(total|sum|average|avg)\b", lowered):
+            for column in columns:
+                if normalize_text(column) and normalize_text(column) in normalize_text(lowered):
+                    return True
+        return False
+
+    def _choose_table_id(
+        self,
+        schemas: List[dict],
+        needed: set,
+    ) -> Optional[str]:
+        if not needed:
+            return None
+        for schema in schemas:
+            names = {
+                column.get("name")
+                for column in schema.get("columns", [])
+                if column.get("name")
+            }
+            if needed.issubset(names):
+                return schema.get("document_id")
+        return None
 
     def _infer_value_filter(
         self,
@@ -261,6 +313,10 @@ class QueryPlanner:
     def _detect_operation(self, lowered: str) -> str:
         if any(token in lowered for token in ("average", "avg ", "mean ")):
             return "avg"
+        if re.search(r"\btotal\s+(number|count)\s+of\s+rows\b", lowered):
+            return "count"
+        if re.search(r"\b(sum|total|how much)\b", lowered):
+            return "sum"
         if "sum of" in lowered or lowered.startswith("sum "):
             return "sum"
         if "distinct" in lowered or "unique" in lowered:
