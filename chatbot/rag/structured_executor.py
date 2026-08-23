@@ -16,6 +16,7 @@ from config import MAX_VALUE_MATCH_CANDIDATES
 from rag.query_planner import QueryFilter, QueryPlan
 from rag.table_store import INTERNAL_COLUMNS, TableStore
 from rag.text_normalize import best_value_match, normalize_text
+from debug_trace import dbg
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,25 @@ class StructuredExecutor:
             filtered, applied_filter = self._apply_filter(filtered, query_filter)
             applied.append(applied_filter)
 
+        dbg(
+            "EXECUTOR_FILTERED",
+            document_name=schema.get("document_name"),
+            document_id=schema.get("document_id"),
+            rows_before=len(frame),
+            rows_after=len(filtered),
+            operation=plan.operation,
+            target_column=plan.target_column,
+            applied=applied,
+            sample_after=filtered.head(3).astype(str).to_dict(orient="records"),
+        )
+
+        value = self._aggregate(filtered, plan)
+        dbg(
+            "EXECUTOR_VALUE",
+            document_name=schema.get("document_name"),
+            value=value,
+            row_count=int(len(filtered)),
+        )
         value = self._aggregate(filtered, plan)
         sources = self._sample_sources(filtered, schema)
 

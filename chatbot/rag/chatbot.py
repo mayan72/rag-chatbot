@@ -32,6 +32,7 @@ from llm.llm_factory import LLMFactory
 from rag.retriever import SemanticRetriever
 from rag.prompt_builder import PromptBuilder
 from rag.hybrid_qa import HybridQAEngine
+from debug_trace import dbg
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,86 @@ class RAGChatbot:
         overall_start = time.perf_counter()
 
         request_id = str(uuid.uuid4())
+        dbg("ASK_START", request_id=request_id, question=question)
+
+        # -------------------------------------------------------
+        # Step 0 : Structured table QA (counts / sums / filters)
+        # -------------------------------------------------------
+
+        structured = self.hybrid_qa.answer(question)
+        dbg(
+            "STEP0_STRUCTURED_RESULT",
+            request_id=request_id,
+            has_result=bool(structured),
+            matched=getattr(structured, "matched", None),
+            answer=getattr(structured, "answer", None),
+            operation=getattr(structured, "operation", None),
+            row_count=getattr(structured, "row_count", None),
+            table_id=getattr(structured, "table_id", None),
+            document_name=getattr(structured, "document_name", None),
+            filters=getattr(structured, "filters", None),
+            source_count=len(getattr(structured, "sources", None) or []),
+        )
+
+        if structured and structured.matched:
+
+            total_time = (
+                time.perf_counter() - overall_start
+            ) * 1000
+
+            log_payload = {
+                "status": "SUCCESS",
+                "timestamp": datetime.now().isoformat(),
+                "request_id": request_id,
+                "provider": "structured",
+                "model": "table-engine",
+                "question": question,
+                "answer": structured.answer,
+                "confidence": 1.0,
+                "max_similarity": 1.0,
+                "should_answer": True,
+                "chunks_retrieved": len(structured.sources or []),
+                "context_length": 0,
+                "retrieval_time_ms": 0,
+                "llm_time_ms": 0,
+                "llm_provider_latency_ms": 0,
+                "total_time_ms": round(total_time, 2),
+                "retrieval_threshold": SIMILARITY_THRESHOLD,
+                "top_k": TOP_K_RESULTS,
+                "temperature": LLM_TEMPERATURE,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "input_cost": 0,
+                "output_cost": 0,
+                "embedding_cost": 0,
+                "total_cost": 0,
+                "sources": structured.sources or [],
+                "error": "",
+            }
+
+            self.run_logger.log_success(log_payload)
+
+            return {
+                "answer": structured.answer,
+                "confidence": 1.0,
+                "provider": "structured",
+                "model": "table-engine",
+                "sources": structured.sources or [],
+                "retrieval_time_ms": 0,
+                "llm_time_ms": 0,
+                "llm_provider_latency_ms": 0,
+                "total_time_ms": round(total_time, 2),
+                "chunks_retrieved": len(structured.sources or []),
+                "context_length": 0,
+                "retrieval_threshold": SIMILARITY_THRESHOLD,
+                "top_k": TOP_K_RESULTS,
+                "temperature": LLM_TEMPERATURE,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "cost": 0,
+            }
 
         # -------------------------------------------------------
         # Step 0 : Structured table QA (counts / sums / filters)
@@ -172,6 +253,22 @@ class RAGChatbot:
         # -------------------------------------------------------
 
         retrieval = self.retriever.retrieve(question)
+        dbg(
+            "STEP1_RAG_RETRIEVAL",
+            request_id=request_id,
+            should_answer=retrieval.should_answer,
+            confidence=retrieval.confidence,
+            max_similarity=retrieval.max_similarity,
+            chunk_count=len(retrieval.chunks),
+            chunk_preview=[
+                {
+                    "similarity": round(chunk.similarity, 4),
+                    "text": (chunk.content or "")[:240],
+                    "meta": chunk.metadata,
+                }
+                for chunk in retrieval.chunks[:5]
+            ],
+        )
 
         logger.info(
             "Retrieval completed | "
@@ -351,6 +448,15 @@ class RAGChatbot:
 
         llm_result = self.llm.generate(
             messages
+        )
+        dbg(
+            "STEP4_LLM_ANSWER",
+            request_id=request_id,
+            provider=self.llm.provider,
+            model=self.llm.model,
+            answer=(llm_result.get("answer") or "")[:500],
+            input_tokens=llm_result.get("input_tokens"),
+            output_tokens=llm_result.get("output_tokens"),
         )
 
         provider_latency = (
